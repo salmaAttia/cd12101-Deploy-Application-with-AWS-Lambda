@@ -25,7 +25,6 @@ package:
     - docs/**
     - README.md
     - package-lock.json
-
 provider:
   name: aws
   runtime: nodejs18.x
@@ -42,6 +41,16 @@ provider:
             - cloudformation:DescribeStackResource
             - cloudformation:CreateStack
             - cloudformation:UpdateStack
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - s3:CreateBucket
+            - s3:PutBucketPolicy
+            - s3:GetBucketLocation
+            - s3:DeleteBucket
+            - s3:ListAllMyBuckets
+            - s3:DeleteObject
+            - s3:ListBucket
           Resource: "*"
   environment:
     TODOS_TABLE: Todos-${self:provider.stage}
@@ -95,6 +104,9 @@ functions:
           path: todos
           cors: true
           auth: Auth
+          request:
+            schemas:
+              application/json: ${file(src/schemas/create-todo.json)}
     iamRoleStatements:
       - Effect: Allow
         Action:
@@ -185,6 +197,7 @@ functions:
       - Effect: Allow
         Action:
           - s3:PutObject
+          - s3:GetObject
         Resource: arn:aws:s3:::${self:provider.environment.ATTACHMENTS_S3_BUCKET}/*
       - Effect: Allow
         Action:
@@ -247,34 +260,36 @@ resources:
               ProjectionType: ALL
 
     # S3 Bucket
-#  AttachmentsBucket:
-#    Type: AWS::S3::Bucket
-#    Properties:
-#      BucketName: ${self:provider.environment.ATTACHMENTS_S3_BUCKET}
-#      CorsConfiguration:
-#        CorsRules:
-#          - AllowedOrigins:
-#              - '*'
-#            AllowedHeaders:
-#              - '*'
-#            AllowedMethods:
-#              - GET
-#              - PUT
-#              - POST
-#              - DELETE
-#              - HEAD
-#            MaxAge: 3000
-#
-#  AttachmentsBucketPolicy:
-#    Type: AWS::S3::BucketPolicy
-#    Properties:
-#      PolicyDocument:
-#        Id: MyPolicy
-#        Version: "2012-10-17"
-#        Statement:
-#          - Sid: PublicReadForGetBucketObjects
-#            Effect: Allow
-#            Principal: '*'
-#            Action: 's3:GetObject'
-#            Resource: 'arn:aws:s3:::${self:provider.environment.ATTACHMENTS_S3_BUCKET}/*'
-#      Bucket: !Ref AttachmentsBucket
+    AttachmentsBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:provider.environment.ATTACHMENTS_S3_BUCKET}
+        PublicAccessBlockConfiguration:
+          BlockPublicPolicy: false
+        CorsConfiguration:
+          CorsRules:
+            -
+              AllowedOrigins:
+                - '*'
+              AllowedHeaders:
+                - '*'
+              AllowedMethods:
+                - GET
+                - PUT
+                - POST
+                - DELETE
+                - HEAD
+              MaxAge: 3000
+    BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        PolicyDocument:
+          Id: MyPolicy
+          Version: "2012-10-17"
+          Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: 'arn:aws:s3:::${self:provider.environment.ATTACHMENTS_S3_BUCKET}/*'
+        Bucket: !Ref AttachmentsBucket        
